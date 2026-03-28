@@ -174,19 +174,40 @@ class MainWindow:
 
 
         # --------------------------------------------------------------------------
-        # 获取屏幕尺寸
+        # 获取屏幕尺寸（带容错机制）
         # --------------------------------------------------------------------------
-        # screeninfo.get_monitors()：获取所有连接的显示器
-        # [0]：取第一个显示器（主显示器）
-        screen = screeninfo.get_monitors()[0]
-        # screen.width：屏幕宽度（像素）
-        # screen.height：屏幕高度（像素）
+        # 优先使用 Qt 原生的方法获取屏幕尺寸，更加可靠
+        # screeninfo 作为备用（某些系统上可能不准确）
 
-        self.screen_width = screen.width
-        # 保存屏幕宽度到实例变量
+        # 先用默认值
+        self.screen_width = 1920
+        self.screen_height = 1080
 
-        self.screen_height = screen.height
-        # 保存屏幕高度到实例变量
+        # 方法1：使用 Qt 的 primaryScreen() 获取主屏幕
+        try:
+            primary_screen = self.app.primaryScreen()
+            if primary_screen:
+                screen_geometry = primary_screen.geometry()
+                self.screen_width = screen_geometry.width()
+                self.screen_height = screen_geometry.height()
+        except Exception as e:
+            # 如果 Qt 方法失败，使用默认值
+            print(f"Qt screen detection failed: {e}")
+
+        # 方法2：如果 screeninfo 可用且返回值合理，验证一下
+        try:
+            screen = screeninfo.get_monitors()[0]
+            # 验证 screeninfo 的值是否合理（与 Qt 的值偏差超过 100 像素）
+            if abs(screen.width - self.screen_width) > 100 or abs(screen.height - self.screen_height) > 100:
+                print(f"Warning: screeninfo returned {screen.width}x{screen.height}, "
+                      f"but Qt returned {self.screen_width}x{self.screen_height}. Using Qt value.")
+            else:
+                # 如果值接近，使用 screeninfo 的值（它可能更准确）
+                self.screen_width = screen.width
+                self.screen_height = screen.height
+        except Exception:
+            pass  # 继续使用 Qt 的值或默认值
+            pass  # 继续使用 Qt 的值
 
 
         # --------------------------------------------------------------------------
