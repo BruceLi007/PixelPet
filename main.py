@@ -10,13 +10,6 @@
     - 设置主定时器，驱动游戏循环
     - 启动 Qt 事件循环，使程序运行
 
-【使用技术】
-    - PyQt6.QtCore.QTimer：Qt 定时器，用于驱动游戏循环（60 FPS）
-    - PyQt6.QtCore.QObject：Qt 对象基类，用于创建事件过滤器
-    - PyQt6.QtCore.Qt：Qt 常量定义
-    - PyQt6.QtGui.QKeyEvent：键盘事件类
-    - Python sys 模块：用于 sys.exit() 退出程序
-
 【程序运行流程】
 
     ┌─────────────────────────────────────────────────────────────┐
@@ -29,19 +22,14 @@
     │  │    - PixelPet（像素小人）                            │   │
     │  │    - InputHandler（输入处理器）                      │   │
     │  │    - GameLoop（游戏循环控制器）                       │   │
+    │  │    - TrayManager（系统托盘）                          │   │
+    │  │    - DragHandler（鼠标拖动）                         │   │
+    │  │    - FollowHandler（鼠标跟随）                        │   │
     │  └─────────────────────────────────────────────────────┘   │
     │                           │                                 │
     │                           ▼                                 │
     │  ┌─────────────────────────────────────────────────────┐   │
-    │  │ 2. 配置事件过滤器                                    │   │
-    │  │    - 创建 EventFilter 实例                          │   │
-    │  │    - 安装到 QApplication 上                         │   │
-    │  │    - 捕获所有键盘事件                                │   │
-    │  └─────────────────────────────────────────────────────┘   │
-    │                           │                                 │
-    │                           ▼                                 │
-    │  ┌─────────────────────────────────────────────────────┐   │
-    │  │ 3. 启动程序                                         │   │
+    │  │ 2. 启动程序                                         │   │
     │  │    - window.show() 显示窗口                         │   │
     │  │    - update_timer.start() 启动定时器                 │   │
     │  │    - pet.start_animation() 启动动画                 │   │
@@ -50,41 +38,24 @@
     │                           │                                 │
     │                           ▼                                 │
     │  ┌─────────────────────────────────────────────────────┐   │
-    │  │ 4. 主循环（定时器触发，每帧执行）                     │   │
+    │  │ 3. 主循环（定时器触发，每帧执行）                     │   │
     │  │    - on_timer() 回调函数                             │   │
     │  │      ├─ 读取键盘输入                                 │   │
+    │  │      ├─ 鼠标跟随处理                                 │   │
     │  │      ├─ 更新角色位置                                 │   │
     │  │      ├─ 穿墙检测                                     │   │
-    │  │      ├─ 更新显示                                     │   │
-    │  │      └─ ESC 退出检查                                 │   │
-    │  └─────────────────────────────────────────────────────┘   │
-    │                           │                                 │
-    │                           ▼                                 │
-    │  ┌─────────────────────────────────────────────────────┐   │
-    │  │ 5. 程序退出                                         │   │
-    │  │    - 停止定时器                                     │   │
-    │  │    - 停止动画                                       │   │
-    │  │    - 关闭窗口                                       │   │
+    │  │      └─ 更新显示                                     │   │
     │  └─────────────────────────────────────────────────────┘   │
     └─────────────────────────────────────────────────────────────┘
-
-【Qt 事件循环机制】
-    Qt 使用事件驱动模型，所有用户交互都通过事件传递：
-    1. 用户按键 → Qt 创建 QKeyEvent → 事件循环分发 → 事件过滤器捕获
-    2. 定时器触发 → Qt 发送 timeout 信号 → 调用绑定的回调函数
-    3. 窗口绘制 → Qt 发送 paint 事件 → 系统自动渲染
-
-    exec() 函数会一直运行事件循环，直到 quit() 被调用
 
 【依赖关系】
     导入：
         - sys, os：标准库
         - PyQt6.QtCore：Qt 核心模块
-        - PyQt6.QtWidgets：Qt 控件模块
-        - PyQt6.QtGui：Qt 图形模块
         - views.main_window：视图层
         - models.pixel_pet：模型层
         - controllers.*：控制器层
+        - features.*：功能模块（托盘、拖动、跟随）
         - config.settings：配置模块
 
 ================================================================================
@@ -95,67 +66,19 @@
 # ================================================================================
 
 import sys
-# sys 模块：提供 Python 解释器相关的功能
-# 主要用途：
-#   - sys.path：Python 模块搜索路径
-#   - sys.exit()：退出程序
-
 import os
-# os 模块：提供操作系统相关的功能
-# 主要用途：
-#   - os.path.dirname()：获取文件目录
-#   - os.path.abspath()：获取绝对路径
 
-
-# ================================================================================
 # 设置模块搜索路径
-# ================================================================================
-
-# 确保项目根目录在 Python 模块搜索路径中
-# 这样可以支持 "from views.main_window import MainWindow" 这样的导入
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-# sys.path.insert(0, ...)：
-#   - sys.path：Python 查找模块的目录列表
-#   - insert(0, ...)：将目录插入到搜索路径的开头（优先级最高）
-#   - os.path.dirname(__file__)：获取当前文件（main.py）所在目录
-#   - os.path.abspath(__file__)：将相对路径转为绝对路径
-
-# 注意：
-#   __file__ 是 Python 的内置变量，表示当前文件的路径
-#   os.path.abspath(__file__) 获取 main.py 的绝对路径
-#   os.path.dirname() 获取 main.py 所在目录（即项目根目录）
 
 
 # ================================================================================
 # 导入 PyQt6 组件
 # ================================================================================
 
-from PyQt6.QtCore import Qt, QTimer, QObject
-# Qt：包含 Qt 框架的各种常量
-#   - Qt.Key.Key_Escape：ESC 键
-#   - Qt.Key.Key_Up/Down/Left/Right：方向键
-#   - Qt.Key.Key_W/A/S/D：WASD 键
-
-# QTimer：Qt 定时器类
-#   - 用于创建定时任务，以固定间隔触发回调函数
-#   - 设置间隔：setInterval(毫秒)
-#   - 连接信号：timeout.connect(回调函数)
-#   - 启动/停止：start() / stop()
-
-# QObject：Qt 所有对象的基类
-#   - 用于创建事件过滤器（继承 QObject 才能重写 eventFilter）
-
+from PyQt6.QtCore import QTimer, QObject
 from PyQt6.QtWidgets import QApplication
-# QApplication：Qt 应用程序类
-#   - 每个 Qt GUI 程序必须创建一个 QApplication 实例
-#   - 负责管理应用程序级别的设置和事件循环
-#   - 必须放在所有窗口控件创建之前
-
 from PyQt6.QtGui import QKeyEvent
-# QKeyEvent：键盘事件类
-#   - key()：获取按键的 Qt 键码
-#   - type()：获取事件类型（按下/释放）
-#   - 用于事件过滤器中判断和处理按键
 
 
 # ================================================================================
@@ -163,28 +86,13 @@ from PyQt6.QtGui import QKeyEvent
 # ================================================================================
 
 from views.main_window import MainWindow
-# MainWindow：主窗口视图类
-#   - 负责创建透明窗口
-#   - 提供 set_pet_pixmap() 和 set_pet_position() 更新显示
-
 from models.pixel_pet import PixelPet
-# PixelPet：像素小人数据模型类
-#   - 负责管理角色位置、方向、动画
-#   - 提供 move()、set_direction()、start_animation() 等方法
-
 from controllers.input_handler import InputHandler
-# InputHandler：键盘输入处理器类
-#   - 负责检测按键状态
-#   - 提供 handle_input() 返回移动量
-
 from controllers.game_loop import GameLoop
-# GameLoop：游戏循环控制器类
-#   - 负责穿墙逻辑
-#   - 提供 wrap_position() 方法
-
+from features.tray import TrayManager
+from features.mouse_drag import DragHandler
+from features.mouse_follow import FollowHandler
 from config.settings import MOVE_INTERVAL
-# 配置模块
-#   - MOVE_INTERVAL：定时器间隔（毫秒），约 16.67ms（60 FPS）
 
 
 # ================================================================================
@@ -194,15 +102,6 @@ from config.settings import MOVE_INTERVAL
 def main():
     """
     应用程序的主函数
-
-    这是程序的入口点，从这里开始执行
-
-    执行流程：
-        1. 创建并初始化所有组件
-        2. 配置定时器和事件过滤
-        3. 显示窗口并启动程序
-        4. 进入 Qt 事件循环
-        5. 程序退出时清理资源
     """
 
     # ==========================================================================
@@ -210,269 +109,140 @@ def main():
     # ==========================================================================
 
     window = MainWindow()
-    # 创建 MainWindow 实例
-    # 内部会：
-    #   - 创建 QApplication（如果还没有）
-    #   - 创建全屏透明窗口
-    #   - 设置窗口标志（无边框、顶层等）
-    #   - 创建 QLabel 用于显示宠物
-
     screen_width, screen_height = window.get_screen_size()
-    # 获取屏幕尺寸
-    # 返回 (宽度, 高度)，例如 (1920, 1080)
+
 
     # ==========================================================================
     # 第二步：创建像素小人
     # ==========================================================================
 
     pet = PixelPet(0, 0)
-    # 创建 PixelPet 实例，初始位置 (0, 0)
-    # 位置稍后会根据图片尺寸重新计算居中位置
 
     # 计算居中位置
-    # 原理：让角色中心与屏幕中心重合
-    # 角色左上角 x = 屏幕中心x - 角色宽度/2
     start_x = (screen_width - pet.width) // 2
     start_y = (screen_height - pet.height) // 2
-    # // 是整数除法，确保坐标是整数
-
     pet.set_position(start_x, start_y)
-    # 将角色移动到屏幕中央
+
 
     # ==========================================================================
     # 第三步：创建输入处理器和游戏循环
     # ==========================================================================
 
     input_handler = InputHandler()
-    # 创建 InputHandler 实例
-    # 负责检测键盘按键状态
-
     game_loop = GameLoop(window, pet, input_handler)
-    # 创建 GameLoop 实例
-    # 负责穿墙逻辑（虽然当前版本穿墙在定时器回调中直接调用）
+
 
     # ==========================================================================
-    # 第四步：设置初始显示
+    # 第四步：初始化功能模块
+    # ==========================================================================
+
+    # 鼠标跟随
+    follow_handler = FollowHandler(window, pet, input_handler)
+
+    # 系统托盘
+    tray_manager = TrayManager(window.window, window.quit)
+
+    # 鼠标拖动
+    drag_handler = DragHandler(window.window, window.pet_label, pet, follow_handler, tray_manager)
+
+
+    # ==========================================================================
+    # 第五步：设置初始显示
     # ==========================================================================
 
     window.set_pet_pixmap(pet.current_sprite)
-    # 在 QLabel 上显示宠物的第一帧图片
-    # current_sprite 是 PixelPet 当前显示的 QPixmap
-
     window.set_pet_position(pet.x, pet.y)
-    # 将 QLabel 移动到计算好的居中位置
+
 
     # ==========================================================================
-    # 第五步：创建并配置主定时器
+    # 第六步：创建并配置主定时器
     # ==========================================================================
 
     update_timer = QTimer()
-    # 创建 Qt 定时器实例
-
     update_timer.setInterval(MOVE_INTERVAL)
-    # setInterval()：设置定时器触发的时间间隔
-    # MOVE_INTERVAL = 1000 // 60 ≈ 16.67 毫秒
-    # 意味着每秒触发约 60 次，即 60 FPS
 
-    # --------------------------------------------------------------------------
-    # 定义定时器回调函数
-    # --------------------------------------------------------------------------
-    # 这是游戏的核心：每帧都会执行这里的代码
 
     def on_timer():
         """
         定时器回调函数 - 每帧执行一次
-
-        这个函数大约每 16.67ms（60 FPS）被调用一次
-
-        执行内容：
-            1. 读取键盘输入，获取移动量
-            2. 更新角色位置
-            3. 处理穿墙逻辑
-            4. 更新显示（图片和位置）
-            5. 检查退出条件
         """
 
-        # 读取键盘输入
-        # handle_input() 返回 (dx, dy) 元组
-        # dx：水平移动量（正数=右，负数=左）
-        # dy：垂直移动量（正数=下，负数=上）
-        dx, dy = input_handler.handle_input()
+        # 检查 ESC 是否按下，退出鼠标跟随模式
+        if follow_handler.check_escape():
+            if follow_handler.is_follow_enabled():
+                follow_handler.disable_follow()
+                tray_manager.follow_mouse_action.setChecked(False)
+
+        # 获取移动方向
+        dx, dy = 0, 0
+
+        if follow_handler.is_follow_enabled():
+            # 鼠标跟随模式
+            dx, dy = follow_handler.update()
+
+            # 计算总移动距离，距离太小视为停止
+            move_distance = (dx ** 2 + dy ** 2) ** 0.5
+            if move_distance < 1.0:
+                dx, dy = 0, 0
+        else:
+            # 读取键盘输入
+            dx, dy = input_handler.handle_input()
 
         # 更新角色方向和位置
         pet.set_direction(dx, dy)
-        # set_direction() 根据移动方向：
-        #   - 设置当前动画（left/right/stay）
-        #   - 上下移动时保持之前的面向方向
-
         pet.move(dx, dy)
-        # move() 更新角色的 x, y 坐标
-        # 如果 dx=0 且 dy=0，角色不会移动
 
         # 处理穿墙逻辑
         if dx != 0 or dy != 0:
-            # 只有在角色确实在移动时才需要检查穿墙
-            # 如果角色已经停止，不需要重新计算穿墙
             game_loop.wrap_position()
-            # wrap_position() 检查角色是否移出屏幕
-            # 如果移出，将位置调整为从对侧进入
 
         # 更新显示
         window.set_pet_pixmap(pet.current_sprite)
-        # 设置 QLabel 显示当前动画帧
-        # 动画定时器会定期调用 _next_frame() 切换帧
-
         window.set_pet_position(pet.x, pet.y)
-        # 将 QLabel 移动到角色当前位置
 
-        # 检查退出条件
-        if Qt.Key.Key_Escape in input_handler.keys_pressed:
-            # 如果 ESC 键被按下
-
-            update_timer.stop()
-            # 停止主定时器，不再触发回调
-
-            pet.stop_animation()
-            # 停止角色动画定时器
-
-            window.quit()
-            # 关闭窗口，退出程序
-
-
-    # 将回调函数连接到定时器的 timeout 信号
     update_timer.timeout.connect(on_timer)
-    # 每当定时器触发时，自动调用 on_timer()
 
 
     # ==========================================================================
-    # 第六步：配置键盘事件过滤器
+    # 第七步：配置键盘事件过滤器
     # ==========================================================================
-
-    # Qt 的事件过滤器机制：
-    # 事件过滤器可以捕获发送给所有控件的事件
-    # 这样我们可以拦截所有键盘事件，检测方向键
 
     class EventFilter(QObject):
-        """
-        键盘事件过滤器类
-
-        继承自 QObject 并重写 eventFilter() 方法
-        可以安装在 QApplication 上，捕获所有键盘事件
-
-        工作原理：
-            所有键盘事件先发送到事件过滤器
-            过滤器处理后可以选择：
-                - 拦截事件（返回 True）
-                - 放行事件（返回 False）
-        """
 
         def __init__(self, handler):
-            """
-            构造函数
-
-            参数：
-                handler：InputHandler 实例，用于存储按键状态
-            """
             super().__init__()
-            # 调用父类构造函数
-
             self.handler = handler
-            # 保存 InputHandler 引用，用于处理按键事件
-
 
         def eventFilter(self, obj, event):
-            """
-            事件过滤器方法
-
-            参数：
-                obj：事件发送的对象（被忽略）
-                event：Qt 事件对象
-
-            返回：
-                True：拦截事件，不再传递
-                False：放行事件，继续传递
-
-            实现：
-                - 检测是否是键盘按下事件（KeyPress）
-                - 检测是否是键盘释放事件（KeyRelease）
-                - 调用 InputHandler 的方法处理
-                - 返回 True 拦截事件，防止被其他控件处理
-            """
             if event.type() == QKeyEvent.Type.KeyPress:
-                # 键盘按键按下事件
-
                 self.handler.keyPressEvent(event)
-                # 调用 InputHandler 处理按键按下
-                # InputHandler 会将按键添加到 keys_pressed 集合
-
                 return True
-                # 返回 True：拦截这个事件，不让它继续传递
-
             elif event.type() == QKeyEvent.Type.KeyRelease:
-                # 键盘按键释放事件
-
                 self.handler.keyReleaseEvent(event)
-                # 调用 InputHandler 处理按键释放
-                # InputHandler 会将按键从 keys_pressed 集合中移除
-
                 return True
-                # 返回 True：拦截这个事件
-
             return False
-            # 其他事件类型（如鼠标事件、绘制事件），不拦截
 
-
-    # 创建事件过滤器实例
     event_filter = EventFilter(input_handler)
-
-    # 安装到 QApplication 上
-    # 安装后，所有发送给应用程序的事件都会先经过事件过滤器
     window.app.installEventFilter(event_filter)
-    # 注意：虽然变量名叫 window.app，但实际是 QApplication 实例
 
 
     # ==========================================================================
-    # 第七步：启动程序
+    # 第八步：启动程序
     # ==========================================================================
 
     window.show()
-    # 显示主窗口
-    # 窗口显示后，用户可以看到透明的背景和像素小人
-
     update_timer.start()
-    # 启动主定时器
-    # 启动后，每隔 MOVE_INTERVAL 毫秒触发一次，调用 on_timer()
-
     pet.start_animation()
-    # 启动角色动画定时器
-    # 启动后，每隔 ANIM_INTERVAL 毫秒切换一次动画帧
 
-    # ==========================================================================
-    # 第八步：进入事件循环
-    # ==========================================================================
+    # 连接托盘菜单的跟随选项到 follow_handler
+    tray_manager.follow_mouse_action.triggered.connect(follow_handler.toggle_follow)
 
-    # Qt 应用程序的主事件循环
-    # exec() 会一直阻塞，直到应用程序退出
-    # 在此期间：
-    #   - 定时器会按间隔触发
-    #   - 所有键盘/鼠标事件会被事件过滤器捕获
-    #   - 窗口会响应重绘请求
     sys.exit(window.app.exec())
-    # sys.exit()：
-    #   - 退出 Python 程序
-    #   - window.app.exec() 返回的值作为退出码
-    #   - 0 表示正常退出，非 0 表示异常
 
 
 # ================================================================================
 # 程序入口点
-# ================================================================================
+# =============================================================================
 
-# 当直接运行这个文件时（python main.py），执行 main()
-# 当作为模块被导入时（import main），不执行 main()
 if __name__ == "__main__":
     main()
-
-# __name__ 是 Python 的内置变量：
-#   - 如果文件被直接运行，__name__ == "__main__"
-#   - 如果文件被导入作为模块，__name__ == "main"

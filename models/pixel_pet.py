@@ -69,7 +69,9 @@ from config.settings import (
     ANIM_STAY_PATH,
     ANIM_LEFT_PATH,
     ANIM_RIGHT_PATH,
-    ANIM_INTERVAL
+    ANIM_STAY_FPS,
+    ANIM_LEFT_FPS,
+    ANIM_RIGHT_FPS
 )
 # 从配置模块导入：
 #   - ANIM_STAY_PATH：静止动画帧目录路径
@@ -234,9 +236,9 @@ class PixelPet:
         self.anim_timer = QTimer()
         # 创建定时器实例
 
-        self.anim_timer.setInterval(ANIM_INTERVAL)
+        self.anim_timer.setInterval(1000 // ANIM_STAY_FPS)
         # setInterval()：设置定时器触发的时间间隔（毫秒）
-        # ANIM_INTERVAL = 100，即每 100ms 触发一次
+        # 初始使用静止动画的帧率
 
         self.anim_timer.timeout.connect(self._next_frame)
         # timeout.connect()：连接超时信号到回调函数
@@ -524,6 +526,22 @@ class PixelPet:
 
             self.current_sprite = self.current_frames[0]
             # 立即更新显示的图片
+
+            # 更新动画帧率
+            self._update_anim_interval()
+
+
+    def _update_anim_interval(self):
+        """
+        根据当前方向更新动画帧间隔
+        """
+        fps_map = {
+            Direction.STAY: ANIM_STAY_FPS,
+            Direction.LEFT: ANIM_LEFT_FPS,
+            Direction.RIGHT: ANIM_RIGHT_FPS,
+        }
+        fps = fps_map.get(self.direction, 10)
+        self.anim_timer.setInterval(1000 // fps)
 
 
     # ==========================================================================

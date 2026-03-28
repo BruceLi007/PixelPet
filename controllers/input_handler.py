@@ -336,6 +336,20 @@ class InputHandler(QObject):
         # 如果任一方向有移动量，返回 True
 
 
+    def is_escape_pressed(self) -> bool:
+        """
+        检查 ESC 键是否被按下
+
+        返回：
+            bool：True 表示 ESC 被按下，False 表示没有
+
+        用途：
+            用于退出鼠标跟随模式等需要 ESC 快捷键的场景
+        """
+
+        return Qt.Key.Key_Escape in self.keys_pressed
+
+
     def clear(self):
         """
         清空所有按下的键状态
