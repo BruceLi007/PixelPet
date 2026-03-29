@@ -143,7 +143,7 @@ def main():
     tray_manager = TrayManager(window.window, window.quit)
 
     # 鼠标拖动
-    drag_handler = DragHandler(window.window, window.pet_label, pet, follow_handler, tray_manager)
+    drag_handler = DragHandler(window.window, window.pet_label, pet, follow_handler, tray_manager, window.quit, input_handler.speed_boost_handler)
 
 
     # ==========================================================================

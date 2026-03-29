@@ -49,7 +49,7 @@ class DragHandler(QObject):
         drag_handler = DragHandler(window, pet_label, pet, follow_handler, tray_manager)
     """
 
-    def __init__(self, window: QObject, pet_label, pet, follow_handler, tray_manager):
+    def __init__(self, window: QObject, pet_label, pet, follow_handler, tray_manager, quit_callback, speed_boost_handler):
         """
         构造函数 - 初始化拖动处理器
 
@@ -59,6 +59,8 @@ class DragHandler(QObject):
             pet：宠物对象
             follow_handler：跟随处理器（用于菜单操作）
             tray_manager：托盘管理器（用于菜单操作）
+            quit_callback：退出程序回调函数
+            speed_boost_handler：双击加速处理器（用于菜单操作）
         """
 
         super().__init__()
@@ -67,6 +69,8 @@ class DragHandler(QObject):
         self.pet = pet
         self.follow_handler = follow_handler
         self.tray_manager = tray_manager
+        self.quit_callback = quit_callback
+        self.speed_boost_handler = speed_boost_handler
 
 
         # --------------------------------------------------------------------------
@@ -195,6 +199,11 @@ class DragHandler(QObject):
         # 创建菜单
         menu = QMenu()
 
+        # 添加"双击方向键加速"提示（不可点击）
+        speed_boost_action = QAction("双击方向键加速", menu)
+        speed_boost_action.setEnabled(False)
+        menu.addAction(speed_boost_action)
+
         # 添加"鼠标跟随（ESC退出）"菜单项
         follow_action = QAction("鼠标跟随（ESC退出）", menu)
         follow_action.setCheckable(True)
@@ -209,6 +218,14 @@ class DragHandler(QObject):
 
         follow_action.triggered.connect(toggle_follow)
         menu.addAction(follow_action)
+
+        menu.addSeparator()
+        # 添加分隔线
+
+        # 添加"退出"菜单项
+        exit_action = QAction("退出", menu)
+        exit_action.triggered.connect(self.quit_callback)
+        menu.addAction(exit_action)
 
         # 显示菜单（在当前鼠标位置）
         from PyQt6.QtGui import QCursor
