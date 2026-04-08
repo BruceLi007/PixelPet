@@ -86,12 +86,13 @@ from PyQt6.QtGui import QKeyEvent
 # ================================================================================
 
 from views.main_window import MainWindow
-from models.pixel_pet import PixelPet
+from models.pixel_pet import PixelPet, Direction
 from controllers.input_handler import InputHandler
 from controllers.game_loop import GameLoop
 from features.tray import TrayManager
 from features.mouse_drag import DragHandler
 from features.mouse_follow import FollowHandler
+from features.jump import JumpHandler
 from config.settings import MOVE_INTERVAL
 
 
@@ -145,6 +146,9 @@ def main():
     # 鼠标拖动
     drag_handler = DragHandler(window.window, window.pet_label, pet, follow_handler, tray_manager, window.quit, input_handler.speed_boost_handler)
 
+    # 跳跃处理器
+    jump_handler = JumpHandler()
+
 
     # ==========================================================================
     # 第五步：设置初始显示
@@ -188,17 +192,34 @@ def main():
             # 读取键盘输入
             dx, dy = input_handler.handle_input()
 
-        # 更新角色方向和位置
-        pet.set_direction(dx, dy)
-        pet.move(dx, dy)
+        # 检查跳跃（X键）- 跳跃优先级最高，原地弹跳不移动
+        if input_handler.is_jump_pressed() and not jump_handler.is_jumping(pet):
+            jump_handler.jump(pet)
 
-        # 处理穿墙逻辑
-        if dx != 0 or dy != 0:
-            game_loop.wrap_position()
+        # 更新跳跃物理（每帧调用）
+        jump_handler.update_jump(pet)
+
+        # 更新角色方向和位置
+        if jump_handler.is_jumping(pet):
+            # 跳跃时只能水平移动（垂直方向由跳跃物理控制）
+            if dx != 0:
+                pet.move(dx, 0)
+                # 更新面向方向
+                pet.facing = Direction.LEFT if dx < 0 else Direction.RIGHT
+                # 处理穿墙逻辑
+                game_loop.wrap_position()
+        else:
+            # 非跳跃状态，正常移动
+            pet.set_direction(dx, dy)
+            pet.move(dx, dy)
+
+            # 处理穿墙逻辑
+            if dx != 0 or dy != 0:
+                game_loop.wrap_position()
 
         # 更新显示
         window.set_pet_pixmap(pet.current_sprite)
-        window.set_pet_position(pet.x, pet.y)
+        window.set_pet_position(int(pet.x), int(pet.y))
 
     update_timer.timeout.connect(on_timer)
 

@@ -42,6 +42,9 @@
 import os
 # os 模块：用于拼接文件路径，检查文件是否存在
 
+import math
+# math 模块：用于数学计算（如 sqrt 平方根）
+
 
 # ================================================================================
 # 导入项目模块
@@ -69,14 +72,17 @@ from config.settings import (
     ANIM_STAY_PATH,
     ANIM_LEFT_PATH,
     ANIM_RIGHT_PATH,
+    ANIM_JUMP_PATH,
     ANIM_STAY_FPS,
     ANIM_LEFT_FPS,
-    ANIM_RIGHT_FPS
+    ANIM_RIGHT_FPS,
+    ANIM_JUMP_FPS
 )
 # 从配置模块导入：
 #   - ANIM_STAY_PATH：静止动画帧目录路径
 #   - ANIM_LEFT_PATH：向左动画帧目录路径
 #   - ANIM_RIGHT_PATH：向右动画帧目录路径
+#   - ANIM_JUMP_PATH：跳跃动画帧目录路径
 #   - ANIM_INTERVAL：动画帧切换的时间间隔（毫秒）
 
 
@@ -103,6 +109,9 @@ class Direction(Enum):
 
     STAY = "stay"
     # 静止状态（站立待机）
+
+    JUMP = "jump"
+    # 原地跳跃状态
 
 
 # ================================================================================
@@ -177,6 +186,20 @@ class PixelPet:
         # 标记角色是否正在移动
         # 用于动画播放控制：移动时播放动画帧，静止时播放待机帧
 
+        self.is_jumping = False
+        # 标记角色是否正在跳跃
+        # 跳跃时位置不变，但播放跳跃动画
+
+        # 跳跃物理参数
+        self.jump_velocity = 0
+        # 当前跳跃垂直速度（负数=向上，正数=向下）
+        self.jump_initial_y = 0
+        # 跳跃起始y坐标
+        self.jump_height = 120
+        # 跳跃目标高度（像素）- 宠物会跳到这个高度然后落下
+        self.gravity = 2.0
+        # 重力加速度（增大使跳跃更稳定）
+
 
         # --------------------------------------------------------------------------
         # 父对象引用（Qt 相关）
@@ -200,6 +223,9 @@ class PixelPet:
 
             # 加载向右动画帧：right-1.png, right-2.png, right-3.png, right-4.png
             Direction.RIGHT: self._load_frames(ANIM_RIGHT_PATH, "right"),
+
+            # 加载跳跃动画帧：jump-1.png, jump-2.png, jump-3.png, jump-4.png
+            Direction.JUMP: self._load_frames(ANIM_JUMP_PATH, "jump"),
         }
 
 
@@ -303,19 +329,24 @@ class PixelPet:
         切换到当前动画的下一帧
 
         定时器每触发一次调用此方法，实现动画循环播放：
-            1. 检查是否应该播放动画（移动中或静止待机时）
+            1. 检查是否应该播放动画（移动中或静止待机时或跳跃中）
             2. 帧索引 +1，并循环回到 0（超过列表长度时）
             3. 更新当前显示的图片对象
 
         注意：
             - 停止移动时不调用此方法，保持在第 1 帧
             - 切换方向时会重置帧索引，从第一帧开始播放
+            - 跳跃动画播放完后自动切换回静止状态
         """
 
         # 检查是否应该播放动画
-        # 条件：正在移动 或 当前是静止动画
+        # 条件：正在移动 或 当前是静止动画 或 正在跳跃
         # 这样设计是为了让角色静止时也播放待机动画，更有活力
-        if self.is_moving or self.direction == Direction.STAY:
+        if self.is_moving or self.direction == Direction.STAY or self.is_jumping:
+
+            # 如果没有动画帧，不播放
+            if len(self.current_frames) == 0:
+                return
 
             # 帧索引循环递增
             # 例如：3 + 1 = 4，4 % 4 = 0（回到第一帧）
@@ -417,6 +448,64 @@ class PixelPet:
 
             self.is_moving = False
             # 标记为静止状态
+
+
+    def jump(self):
+        """
+        触发原地跳跃
+
+        实现逻辑：
+            1. 如果已经在跳跃中，不重复触发
+            2. 如果没有跳跃动画帧，不执行跳跃
+            3. 记录跳跃起始位置
+            4. 根据目标高度计算初速度（v = sqrt(2 * g * h)）
+            5. 切换到跳跃动画状态
+        """
+        if self.is_jumping:
+            # 已经在跳跃中，不重复触发
+            return
+
+        # 如果没有跳跃动画帧，不执行跳跃
+        if len(self.frames[Direction.JUMP]) == 0:
+            return
+
+        self.is_jumping = True
+        self.jump_initial_y = self.y
+        # 根据目标高度计算初速度：v = sqrt(2 * g * h)
+        # 向上的速度是负数
+        self.jump_velocity = -math.sqrt(2 * self.gravity * self.jump_height)
+        self.direction = Direction.JUMP
+        self.current_frames = self.frames[Direction.JUMP]
+        self.frame_index = 0
+        self._update_anim_interval()
+
+
+    def update_jump(self):
+        """
+        更新跳跃物理（每帧调用）
+
+        使用简单的抛物线运动模拟跳跃：
+            - 初始给予向上的速度
+            - 每帧速度减少（重力作用）
+            - 速度变正后开始下落
+            - 落回原位时停止跳跃
+        """
+        if not self.is_jumping:
+            return
+
+        # 应用重力
+        self.jump_velocity += self.gravity
+
+        # 更新y坐标
+        self.y += self.jump_velocity
+
+        # 检测是否落地：y坐标回到或超过初始位置 且 正在下落（velocity > 0）
+        if self.y >= self.jump_initial_y and self.jump_velocity > 0:
+            self.y = self.jump_initial_y
+            self.is_jumping = False
+            self.direction = Direction.STAY
+            self.current_frames = self.frames[Direction.STAY]
+            self._update_anim_interval()
 
 
     def set_direction(self, dx: float, dy: float):
@@ -539,6 +628,7 @@ class PixelPet:
             Direction.STAY: ANIM_STAY_FPS,
             Direction.LEFT: ANIM_LEFT_FPS,
             Direction.RIGHT: ANIM_RIGHT_FPS,
+            Direction.JUMP: ANIM_JUMP_FPS,
         }
         fps = fps_map.get(self.direction, 10)
         self.anim_timer.setInterval(1000 // fps)

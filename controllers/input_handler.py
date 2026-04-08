@@ -372,6 +372,20 @@ class InputHandler(QObject):
         return Qt.Key.Key_Escape in self.keys_pressed
 
 
+    def is_jump_pressed(self) -> bool:
+        """
+        检查 X 键（跳跃）是否被按下
+
+        返回：
+            bool：True 表示 X 键被按下，False 表示没有
+
+        用途：
+            用于触发原地跳跃功能
+        """
+
+        return Qt.Key.Key_X in self.keys_pressed
+
+
     def clear(self):
         """
         清空所有按下的键状态

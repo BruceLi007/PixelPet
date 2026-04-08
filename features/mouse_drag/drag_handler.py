@@ -174,6 +174,10 @@ class DragHandler(QObject):
         """
         更新拖动位置
         """
+        # 如果宠物正在跳跃，不允许拖动
+        if self.pet.is_jumping:
+            return
+
         mouse_x = event.position().x()
         mouse_y = event.position().y()
 

@@ -108,6 +108,9 @@ ANIM_LEFT_FPS = 10
 ANIM_RIGHT_FPS = 10
 # 向右动画帧率：每秒 10 帧
 
+ANIM_JUMP_FPS = 8
+# 跳跃动画帧率：每秒 8 帧
+
 # 兼容旧配置（保留但不使用）
 ANIM_FPS = 10
 ANIM_INTERVAL = 1000 // ANIM_FPS
@@ -140,6 +143,10 @@ ANIM_LEFT_PATH = os.path.join(SPRITE_PATH, "left")
 # 向右移动动画帧目录
 # 目录下应包含 4 张图片：right-1.png, right-2.png, right-3.png, right-4.png
 ANIM_RIGHT_PATH = os.path.join(SPRITE_PATH, "right")
+
+# 原地跳跃动画帧目录
+# 目录下应包含 4 张图片：jump-1.png, jump-2.png, jump-3.png, jump-4.png
+ANIM_JUMP_PATH = os.path.join(SPRITE_PATH, "jump")
 
 
 # ================================================================================
